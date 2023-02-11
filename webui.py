@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import os
+import ipfs
 import json
 import html
 import random
@@ -22,12 +23,7 @@ ipfspath = '/usr/local/bin/ipfs'
 with open('cfg/email.cfg', 'r') as ecf:
   email = ecf.read()
 
-ipfs_id = ''
-if os.path.exists('ipfs/config'):
-  with open('ipfs/config', 'r') as ipcfg:
-    ipconfig = ipcfg.read()
-    jtxt = json.loads(ipconfig)
-    ipfs_id = jtxt['Identity']['PeerID']
+ipfs_id = ipfs.get_peer_id()
 
 @route('/')
 def index():
@@ -88,9 +84,8 @@ def index():
   htmlsrc += '<a class="' + httpsstat + '" href="https://ipfspodcasting.net/Help/Network" title="Port 443 Status" target="_blank">HTTPS</a> '
   
   peercnt = 0
-  speers = subprocess.run(ipfspath + ' swarm peers|wc -l', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  if speers.returncode == 0:
-    peercnt = int(speers.stdout.decode().strip())
+  speers = ipfs.get_swarm_peers()
+  peercnt = len(speers['Peers'])
   if peercnt > 400:
     ipfsstat = 'ppass'
   elif peercnt > 100:
@@ -99,12 +94,8 @@ def index():
     ipfsstat = 'pfail'
   htmlsrc += '<a class="' + ipfsstat + '" href="https://ipfspodcasting.net/Help/Network" title="Port 4001 Status" target="_blank">IPFS <span style="font-weight: normal; color: #222;">- ' + str(peercnt) + ' Peers</span></a><br/>'
 
-  repostat = subprocess.run(ipfspath + ' repo stat -s|grep RepoSize', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  if repostat.returncode == 0:
-    repolen = repostat.stdout.decode().strip().split(':')
-    used = int(repolen[1].strip())
-  else:
-    used = 0
+  repostat = ipfs.get_repo_stat()
+  used = repostat['RepoSize']
   df = os.statvfs('/')
   avail = df.f_bavail * df.f_frsize
   percent = round(used/(used+avail)*100, 1)
@@ -130,16 +121,8 @@ def index():
   htmlsrc += '</div>'
 
   #don't allow gc while pinning (or already running)
-  gctxt = ''
-  gcrun = subprocess.run('ps x|grep -E "(repo gc|ipfs pin)"|grep -v grep', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  if gcrun.returncode == 0:
-    gctxt = gcrun.stdout.decode().strip()
-  if gctxt == '':
-    disabled = ''
-    title = 'Run IPFS Garbage Collection'
-  else:
-    disabled = 'disabled="disabled"'
-    title = 'Not available while pinning or GC already running...'
+  disabled = ''
+  title = 'Run IPFS Garbage Collection'
 
   htmlsrc += '<form id="igc" action="/" method="post">'
   htmlsrc += '<input id="csrf" name="csrf" type="hidden" value="' + sess['csrf'] + '" />'
@@ -181,10 +164,12 @@ def do_email():
       email = request.forms.get('email')
       with open('cfg/email.cfg', 'w') as ecf:
         ecf.write(email)
+
     if request.forms.get('reset') == '1':
       suicide = subprocess.run('kill 1', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     if request.forms.get('rungc') == '1':
-      gcrun = subprocess.run(ipfspath + ' repo gc --silent', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      ipfs.run_repo_gc()
 
   redirect('/')
 
