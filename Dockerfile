@@ -1,23 +1,6 @@
-### Build Stage
-FROM python:slim-buster AS build
-
-ARG IPFSGO=v0.13.0
-ARG TARGETARCH
-
-WORKDIR /ipfs-podcasting
-
-RUN apt-get update; \
-    apt-get install -y --no-install-recommends wget \
-    && wget -q https://dist.ipfs.io/go-ipfs/${IPFSGO}/go-ipfs_${IPFSGO}_linux-$TARGETARCH.tar.gz \
-    && tar xzf go-ipfs_${IPFSGO}_linux-$TARGETARCH.tar.gz \
-    && cp go-ipfs/ipfs /usr/local/bin \
-    && rm -rf go-ipfs_${IPFSGO}_linux-$TARGETARCH.tar.gz go-ipfs \
-    && rm -rf /var/lib/apt/lists/*
-
 ### Bundle Stage
 FROM python:slim-buster AS bundle
 
-ENV IPFS_PATH=/ipfs-podcasting/ipfs
 ARG USERID=1000
 WORKDIR /ipfs-podcasting
 
@@ -28,7 +11,6 @@ RUN apt-get update; \
     && mkdir /ipfs-podcasting/cfg /ipfs-podcasting/ipfs \
     && chown -R ${USERID}:${USERID} /ipfs-podcasting
 
-COPY --from=build /usr/local/bin/ipfs /usr/local/bin/
 COPY *.py *.png ./
 
 USER ${USERID}

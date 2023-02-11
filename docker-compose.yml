@@ -2,17 +2,23 @@ version: "3.7"
 
 services:
   web:
-    image: ipfspodcasting/podcastnode:v0.6
-    init: true
-    restart: on-failure
-    stop_grace_period: 1m
-    user: "1000:1000"
+    build: .
+    depends_on:
+      - kubo
     ports:
-      - ${APP_IPFS_PORT}:4001  # IPFS
-      - ${APP_IPFSPOD_PORT}:8675  # Web UI
+      - 8765:8765
+    restart: on-failure
+    user: 1000:1000
     volumes:
-      - ${APP_DATA_DIR}/ipfs:/ipfs-podcasting/ipfs
-      - ${APP_DATA_DIR}/cfg:/ipfs-podcasting/cfg
-    networks:
-      default:
-        ipv4_address: $APP_IPFSPOD_IP
+      - ${PWD}/cfg:/ipfs-podcasting/cfg
+
+  kubo:
+    image: ipfs/kubo
+    ports:
+      - 4001:4001  # IPFS
+     # - 5001:5001  # private!
+      - 8080:8080  # gateway
+    restart: on-failure
+    user: 1000:1000
+    volumes:
+      - ${PWD}/data/ipfs:/data/ipfs
